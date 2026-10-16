@@ -1,0 +1,38 @@
+:root {
+  font-family: 'Trebuchet MS', 'Nirmala UI', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  color: #263b2d;
+  background: #fbfcf8;
+  font-weight: 400;
+}
+
+* { box-sizing: border-box; }
+
+#root { width: 100%; min-height: 100vh; }
+
+img,
+iframe,
+video { max-width: 100%; }
+
+input,
+select,
+textarea { max-width: 100%; }
+
+body {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+select,
+a { font: inherit; }
+
+::selection {
+  color: #fff;
+  background: #527c4e;
+}
