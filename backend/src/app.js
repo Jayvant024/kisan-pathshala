@@ -1,6 +1,6 @@
 const express = require('express')
 const cors = require('cors')
-const { getAllowedOrigins } = require('./config/allowedOrigins')
+const { getAllowedOrigins, normalizeOrigin } = require('./config/allowedOrigins')
 const authRoutes = require('./routes/authRoutes')
 const courseRoutes = require('./routes/courseRoutes')
 const orderRoutes = require('./routes/orderRoutes')
@@ -17,7 +17,9 @@ const allowedOrigins = getAllowedOrigins()
 app.use(cors({
 	credentials: true,
 	origin(origin, callback) {
-		if (!origin || allowedOrigins.has(origin)) return callback(null, true)
+		if (!origin) return callback(null, true)
+		const normalizedOrigin = normalizeOrigin(origin)
+		if (normalizedOrigin && allowedOrigins.has(normalizedOrigin)) return callback(null, normalizedOrigin)
 		return callback(new Error('Origin is not allowed by CORS'))
 	},
 }))

@@ -1,6 +1,6 @@
 const { createHash, createHmac, timingSafeEqual } = require('node:crypto')
 const pool = require('../config/db')
-const { getAllowedOrigins } = require('../config/allowedOrigins')
+const { getAllowedOrigins, normalizeOrigin } = require('../config/allowedOrigins')
 
 const SESSION_COOKIE = 'kp_session'
 
@@ -75,7 +75,7 @@ function createAuthMiddleware({ db = pool } = {}) {
 	}
 
 	function requireTrustedOrigin(req, res, next) {
-		const origin = req.get('origin')
+		const origin = normalizeOrigin(req.get('origin'))
 		if (!origin || !allowedOrigins.has(origin)) {
 			return res.status(403).json({ success: false, message: 'Request origin is not allowed' })
 		}

@@ -4,6 +4,7 @@ const { once } = require('node:events')
 const app = require('../src/app')
 const { createAuthMiddleware } = require('../src/middleware/authMiddleware')
 const { clearSessionCookie, sessionCookie } = require('../src/services/authSessionService')
+const { getAllowedOrigins } = require('../src/config/allowedOrigins')
 
 async function withServer(run) {
 	const server = app.listen(0, '127.0.0.1')
@@ -34,6 +35,23 @@ test('credentialed auth requests allow the deployed Vercel origin', async () => 
 		})
 
 		assert.equal(response.status, 401)
+		assert.equal(response.headers.get('access-control-allow-origin'), 'https://kisan-pathshala.vercel.app')
+		assert.equal(response.headers.get('access-control-allow-credentials'), 'true')
+	})
+})
+
+test('registration POST from production origin passes CORS and reaches route validation', async () => {
+	await withServer(async (base) => {
+		const response = await fetch(`${base}/api/auth/register`, {
+			method: 'POST',
+			headers: {
+				Origin: 'https://kisan-pathshala.vercel.app',
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({}),
+		})
+
+		assert.equal(response.status, 400)
 		assert.equal(response.headers.get('access-control-allow-origin'), 'https://kisan-pathshala.vercel.app')
 		assert.equal(response.headers.get('access-control-allow-credentials'), 'true')
 	})
@@ -119,6 +137,19 @@ test('trusted-origin protection accepts the production frontend only', () => {
 	requireTrustedOrigin({ get: () => 'https://preview-kisan.vercel.app' }, blockedResponse, () => { blockedNext = true })
 	assert.equal(blockedNext, false)
 	assert.equal(blockedResponse.statusCode, 403)
+})
+
+test('configured FRONTEND_URL is trimmed and normalized to its origin', () => {
+	const previousFrontendUrl = process.env.FRONTEND_URL
+	try {
+		process.env.FRONTEND_URL = '  https://preview-kisan.vercel.app/path/  \n'
+		const origins = getAllowedOrigins()
+		assert.equal(origins.has('https://preview-kisan.vercel.app'), true)
+		assert.equal([...origins].some((origin) => origin.includes('preview-kisan') && origin !== 'https://preview-kisan.vercel.app'), false)
+	} finally {
+		if (previousFrontendUrl === undefined) delete process.env.FRONTEND_URL
+		else process.env.FRONTEND_URL = previousFrontendUrl
+	}
 })
 
 test('cross-site session cookies use SameSite=None and Secure only in production', () => {

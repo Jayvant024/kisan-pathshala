@@ -6,11 +6,22 @@ const DEFAULT_FRONTEND_ORIGINS = [
 	'http://127.0.0.1:5174',
 ]
 
+function normalizeOrigin(value) {
+	if (typeof value !== 'string') return null
+	try {
+		const url = new URL(value.trim())
+		if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return null
+		return url.origin
+	} catch {
+		return null
+	}
+}
+
 function getAllowedOrigins() {
 	return new Set([
-		process.env.FRONTEND_URL,
 		...DEFAULT_FRONTEND_ORIGINS,
+		normalizeOrigin(process.env.FRONTEND_URL),
 	].filter(Boolean))
 }
 
-module.exports = { getAllowedOrigins }
+module.exports = { getAllowedOrigins, normalizeOrigin }
