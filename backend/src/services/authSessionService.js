@@ -12,25 +12,27 @@ function sessionCsrfToken(sessionToken, sessionId) {
 }
 
 function sessionCookie(token, maxAgeSeconds = SESSION_DAYS * 24 * 60 * 60) {
+	const sameSite = process.env.NODE_ENV === 'production' ? 'None' : 'Lax'
 	const parts = [
 		`${SESSION_COOKIE}=${token}`,
 		'Path=/',
 		`Max-Age=${maxAgeSeconds}`,
 		'HttpOnly',
-		'SameSite=Lax',
+		`SameSite=${sameSite}`,
 	]
 	if (process.env.NODE_ENV === 'production') parts.push('Secure')
 	return parts.join('; ')
 }
 
 function clearSessionCookie() {
+	const sameSite = process.env.NODE_ENV === 'production' ? 'None' : 'Lax'
 	const parts = [
 		`${SESSION_COOKIE}=`,
 		'Path=/',
 		'Max-Age=0',
 		'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
 		'HttpOnly',
-		'SameSite=Lax',
+		`SameSite=${sameSite}`,
 	]
 	if (process.env.NODE_ENV === 'production') parts.push('Secure')
 	return parts.join('; ')
