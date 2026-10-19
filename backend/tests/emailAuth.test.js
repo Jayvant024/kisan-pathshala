@@ -6,6 +6,7 @@ const { once } = require('node:events')
 const bcrypt = require('bcryptjs')
 const { createAuthRouter } = require('../src/routes/authRoutes')
 const { createAuthMiddleware } = require('../src/middleware/authMiddleware')
+const { createAuthController } = require('../src/controllers/emailAuthController')
 
 function createFakeDatabase() {
 	const users = new Map()
@@ -196,6 +197,45 @@ test('protected current-user endpoint rejects missing session cookies', async ()
 		const response = await fetch(`${base}/api/auth/me`)
 		assert.equal(response.status, 401)
 	})
+})
+
+test('registration returns a generic error and logs sanitized database diagnostics', async () => {
+	const logs = []
+	const databaseError = Object.assign(
+		new Error('Database connection failed (password=do-not-log this token=also-secret)'),
+		{ code: 'ER_ACCESS_DENIED_ERROR', errno: 1045, sqlState: '28000' },
+	)
+	const controller = createAuthController({
+		db: { async getConnection() { throw databaseError } },
+		passwordHasher: { async hash() { return 'private-password-hash' } },
+		logger: { error(...entry) { logs.push(entry) } },
+	})
+	const response = {
+		statusCode: 200,
+		body: null,
+		status(code) { this.statusCode = code; return this },
+		json(body) { this.body = body; return this },
+		setHeader() {},
+	}
+
+	await controller.register({
+		body: { firstName: 'Asha', lastName: 'Farmer', email: 'asha@example.com', password: 'plain-password-secret', confirmPassword: 'plain-password-secret' },
+		get() { return 'test-agent' },
+	}, response)
+
+	assert.equal(response.statusCode, 500)
+	assert.deepEqual(response.body, { success: false, message: 'Unable to create account right now' })
+	assert.equal(logs.length, 1)
+	assert.equal(logs[0][0], 'Account registration failed')
+	assert.deepEqual(logs[0][1], {
+		stage: 'acquire database connection',
+		code: 'ER_ACCESS_DENIED_ERROR',
+		errno: 1045,
+		sqlState: '28000',
+		message: 'Database connection failed (password=[redacted] this token=[redacted])',
+	})
+	assert.equal(JSON.stringify(logs).includes('plain-password-secret'), false)
+	assert.equal(JSON.stringify(logs).includes('private-password-hash'), false)
 })
 
 test('admin middleware enforces the role loaded from the database profile', async () => {

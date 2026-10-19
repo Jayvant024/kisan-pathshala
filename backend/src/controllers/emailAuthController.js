@@ -4,6 +4,12 @@ const pool = require('../config/db')
 const { clearSessionCookie, createSession, sessionCookie, SESSION_DAYS } = require('../services/authSessionService')
 const BCRYPT_ROUNDS = 12
 
+function safeErrorMessage(error) {
+	return String(error?.message || 'Unknown error')
+		.replace(/\b(password|passwd|token|secret|api[-_ ]?key)\b(\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;)]*)/gi, '$1$2[redacted]')
+		.slice(0, 500)
+}
+
 function validateRegistration(body) {
 	const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : ''
 	const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : ''
@@ -41,26 +47,35 @@ function publicUser(row) {
 	}
 }
 
-function createAuthController({ db = pool, passwordHasher = bcrypt } = {}) {
+function createAuthController({ db = pool, passwordHasher = bcrypt, logger = console } = {}) {
 	async function register(req, res) {
 		let connection
+		let stage = 'validate registration'
 		try {
 			const { firstName, lastName, email, password, phone } = validateRegistration(req.body || {})
+			stage = 'hash password'
 			const passwordHash = await passwordHasher.hash(password, BCRYPT_ROUNDS)
+			stage = 'acquire database connection'
 			connection = await db.getConnection()
+			stage = 'begin transaction'
 			await connection.beginTransaction()
 			const userId = randomUUID()
+			stage = 'insert user'
 			await connection.execute(
 				`INSERT INTO users (id, email, password_hash, status) VALUES (?, ?, ?, 'active')`,
 				[userId, email, passwordHash],
 			)
 			const fullName = `${firstName} ${lastName}`
+			stage = 'insert profile'
 			await connection.execute(
 				'INSERT INTO profiles (id, full_name, phone) VALUES (?, ?, ?)',
 				[userId, fullName, phone],
 			)
+			stage = 'create database session'
 			const { token, csrfToken } = await createSession(connection, userId, req)
+			stage = 'commit transaction'
 			await connection.commit()
+			stage = 'set session cookie'
 			res.setHeader('Set-Cookie', sessionCookie(token, SESSION_DAYS * 24 * 60 * 60))
 			return res.status(201).json({
 				success: true,
@@ -76,6 +91,13 @@ function createAuthController({ db = pool, passwordHasher = bcrypt } = {}) {
 					: 'An account with this email already exists'
 				return res.status(409).json({ success: false, message })
 			}
+			logger.error?.('Account registration failed', {
+				stage,
+				code: error.code || null,
+				errno: Number.isInteger(error.errno) ? error.errno : null,
+				sqlState: error.sqlState || null,
+				message: safeErrorMessage(error),
+			})
 			return res.status(500).json({ success: false, message: 'Unable to create account right now' })
 		} finally {
 			connection?.release()
