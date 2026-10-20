@@ -19,6 +19,7 @@ import AdminPayments from './admin/AdminPayments.jsx'
 import AdminSettings from './admin/AdminSettings.jsx'
 import Help from './pages/Help.jsx'
 import NotFound from './pages/NotFound.jsx'
+import DeveloperBadge from './components/common/DeveloperBadge.jsx'
 import DashboardLayout from './components/layout/DashboardLayout.jsx'
 import { AdminRoute, DashboardRoute, GuestRoute, ProtectedRoute } from './routes/AppRoutes.jsx'
 import { useAuth } from './context/useAuth.js'
@@ -134,8 +135,11 @@ function App() {
       </section>}
 
       <footer className="site-footer">
-        <span>{content.footer}</span>
-        <span className="footer-mark"><span></span><span></span><span></span></span>
+    <span className="site-footer-copy">{content.footer}</span>
+    <div className="site-footer-actions">
+      <span className="footer-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <DeveloperBadge />
+    </div>
       </footer>
     </main>
   )
